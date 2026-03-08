@@ -1,5 +1,7 @@
 packages: .
 
+constraints: wai-app-static +crypton
+
 -- For local development, uncomment and point to your local hazy checkout:
 -- optional-packages: ../hazy
 

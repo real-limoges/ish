@@ -1,0 +1,59 @@
+cabal-version:      3.14
+name:               ish
+version:            0.1.0.0
+synopsis:           Servant mood exploration service using fuzzy math
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Real Limoges
+maintainer:         b.real.limoges@gmail.com
+build-type:         Simple
+
+common warnings
+    ghc-options: -Wall
+
+library
+    import:           warnings
+    exposed-modules:
+        Ish.Types
+        Ish.App
+        Ish.Db
+        Ish.Api
+        Ish.Analysis.Api
+        Ish.Analysis.Server
+        Ish.Analysis.Fuzzy
+    build-depends:
+        base ^>=4.21.0.0,
+        aeson,
+        containers,
+        mtl,
+        servant,
+        servant-server,
+        sqlite-simple,
+        text,
+        time,
+        wai,
+        warp
+    hs-source-dirs:   src
+    default-language: GHC2024
+
+executable ish
+    import:           warnings
+    main-is:          Main.hs
+    ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+    build-depends:
+        base ^>=4.21.0.0,
+        ish,
+        warp
+    hs-source-dirs:   app
+    default-language: GHC2024
+
+test-suite ish-test
+    import:           warnings
+    default-language: GHC2024
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          Main.hs
+    build-depends:
+        base ^>=4.21.0.0,
+        ish,
+        hspec

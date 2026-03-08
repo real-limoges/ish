@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: "9.12"
+
+      - name: Cache cabal store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cabal/store
+          key: ${{ runner.os }}-cabal-${{ hashFiles('ish.cabal', 'cabal.project') }}
+          restore-keys: ${{ runner.os }}-cabal-
+
+      - name: Install dependencies
+        run: cabal update && cabal build --only-dependencies
+
+      - name: Build
+        run: cabal build
+
+      - name: Test
+        run: cabal test
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest

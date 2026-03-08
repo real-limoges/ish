@@ -1,0 +1,10 @@
+packages: .
+
+-- For local development, uncomment and point to your local hazy checkout:
+-- optional-packages: ../hazy
+
+-- Uncomment once hazy has a cabal file published:
+-- source-repository-package
+--   type: git
+--   location: https://github.com/real-limoges/hazy.git
+--   tag: main

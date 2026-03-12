@@ -7,52 +7,38 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-and-test:
+    name: Build & Test (GHC 9.12.2)
     runs-on: ubuntu-latest
+    container: haskell:9.12.2
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: haskell-actions/setup@v2
-        with:
-          ghc-version: "9.12"
+      - name: Show cabal paths
+        run: cabal path
 
       - name: Cache cabal store
         uses: actions/cache@v4
         with:
-          path: ~/.cabal/store
-          key: ${{ runner.os }}-cabal-${{ hashFiles('ish.cabal', 'cabal.project') }}
-          restore-keys: ${{ runner.os }}-cabal-
+          path: |
+            /github/home/.local/state/cabal
+            /github/home/.cache/cabal/packages
+          key: ${{ runner.os }}-ghc-9.12.2-store-${{ hashFiles('cabal.project.freeze', 'ish.cabal', 'cabal.project') }}
+          restore-keys: |
+            ${{ runner.os }}-ghc-9.12.2-store-
 
-      - name: Install dependencies
-        run: cabal update && cabal build --only-dependencies
+      - name: Cache build artifacts
+        uses: actions/cache@v4
+        with:
+          path: dist-newstyle
+          key: ${{ runner.os }}-ghc-9.12.2-dist-${{ hashFiles('cabal.project.freeze', 'ish.cabal', 'src/**/*.hs', 'test/**/*.hs') }}
+
+      - name: Update cabal index
+        run: cabal update
 
       - name: Build
-        run: cabal build
+        run: cabal build all --enable-optimization=2
 
       - name: Test
-        run: cabal test
-
-  docker:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
-
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+        run: cabal test --test-show-details=direct

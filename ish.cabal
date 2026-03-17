@@ -10,6 +10,7 @@ build-type:         Simple
 
 common warnings
     ghc-options: -Wall
+    default-extensions: OverloadedStrings
 
 library
     import:           warnings
@@ -21,6 +22,8 @@ library
         Ish.Analysis.Api
         Ish.Analysis.Server
         Ish.Analysis.Fuzzy
+        Ish.Entries.Api
+        Ish.Entries.Server
     build-depends:
         base ^>=4.21.0.0,
         aeson,

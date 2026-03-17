@@ -1,13 +1,11 @@
-{-# LANGUAGE OverloadedStrings #-}
-
-module Ish.Analysis.Server
-  ( analysisServer
-  ) where
+module Ish.Analysis.Server (
+    analysisServer,
+) where
 
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader (asks)
 import Data.Text (Text)
-import Servant (ServerT, (:<|>)(..))
+import Servant (ServerT, (:<|>) (..))
 
 import Ish.Analysis.Api (AnalysisApi)
 import Ish.Analysis.Fuzzy (analyzeMoodEntries, clusterEntries)
@@ -23,12 +21,12 @@ healthHandler = pure "ok"
 
 analysisHandler :: AppM AnalysisResult
 analysisHandler = do
-  conn <- asks envConnection
-  entries <- liftIO $ fetchAllEntries conn
-  pure $ analyzeMoodEntries entries
+    conn <- asks envConnection
+    entries <- liftIO $ fetchAllEntries conn
+    pure $ analyzeMoodEntries entries
 
 clustersHandler :: AppM [MoodCluster]
 clustersHandler = do
-  conn <- asks envConnection
-  entries <- liftIO $ fetchAllEntries conn
-  pure $ clusterEntries entries
+    conn <- asks envConnection
+    entries <- liftIO $ fetchAllEntries conn
+    pure $ clusterEntries entries

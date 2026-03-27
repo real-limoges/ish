@@ -20,6 +20,7 @@ library
         Ish.Db
         Ish.Api
         Ish.Analysis.Api
+        Ish.Analysis.DataFrame
         Ish.Analysis.Server
         Ish.Analysis.Fuzzy
         Ish.Entries.Api
@@ -28,6 +29,8 @@ library
         base ^>=4.21.0.0,
         aeson,
         containers,
+        dataframe,
+        hazy,
         mtl,
         servant,
         servant-server,
@@ -58,5 +61,9 @@ test-suite ish-test
     main-is:          Main.hs
     build-depends:
         base ^>=4.21.0.0,
+        containers ^>=0.8,
+        tasty,
+        tasty-hunit,
         ish,
-        hspec
+        sqlite-simple ^>=0.4.19.0,
+        time ^>=1.14

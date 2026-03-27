@@ -1,9 +1,11 @@
 packages: .
 
 constraints: wai-app-static -crypton
-allow-newer: all:base, all:transformers-compat, all:template-haskell
+allow-newer: all:base, all:transformers-compat, all:template-haskell, all:containers
 
 source-repository-package
   type: git
   location: https://github.com/real-limoges/hazy.git
   tag: main
+
+tests: True

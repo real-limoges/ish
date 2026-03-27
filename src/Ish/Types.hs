@@ -1,9 +1,7 @@
 module Ish.Types (
-    Score,
-    mkScore,
-    unScore,
     MoodDimension (..),
     MoodEntry (..),
+    Gap (..),
     FuzzyLabel (..),
     MoodCluster (..),
     AnalysisResult (..),
@@ -17,7 +15,6 @@ import Data.Aeson (
     ToJSONKey (..),
     object,
     withObject,
-    withScientific,
     withText,
     (.:),
     (.=),
@@ -26,28 +23,8 @@ import Data.Aeson.Types (toJSONKeyText)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Time.Calendar (Day)
+import Hazy (Degree)
 
--- | A score clamped to [0, 1].
-newtype Score = Score {unScore :: Double}
-    deriving newtype (Eq, Ord, Show)
-
--- | Smart constructor that clamps to [0, 1].
-mkScore :: Double -> Maybe Score
-mkScore d
-    | d >= 0 && d <= 1 = Just (Score d)
-    | otherwise = Nothing
-
-instance ToJSON Score where
-    toJSON (Score d) = toJSON d
-
-instance FromJSON Score where
-    parseJSON = withScientific "Score" $ \s ->
-        let d = realToFrac s
-         in case mkScore d of
-                Just sc -> pure sc
-                Nothing -> fail $ "Score out of range [0,1]: " <> show d
-
--- | The five mood dimensions.
 data MoodDimension
     = Sleep
     | Anxiety
@@ -89,10 +66,9 @@ instance FromJSONKey MoodDimension where
             Just d -> pure d
             Nothing -> fail $ "Unknown MoodDimension key: " <> show t
 
--- | A single mood entry from the database.
 data MoodEntry = MoodEntry
     { entryDate :: Day
-    , entryDimensions :: Map MoodDimension Score
+    , entryDimensions :: Map MoodDimension Double
     }
     deriving stock (Eq, Show)
 
@@ -112,7 +88,7 @@ instance FromJSON MoodEntry where
 -- | A fuzzy label with its membership degree.
 data FuzzyLabel = FuzzyLabel
     { labelName :: Text
-    , labelMembership :: Score
+    , labelMembership :: Degree
     }
     deriving stock (Eq, Show)
 
@@ -132,7 +108,7 @@ instance FromJSON FuzzyLabel where
 -- | A cluster of mood entries.
 data MoodCluster = MoodCluster
     { clusterName :: Text
-    , clusterCentroid :: Map MoodDimension Score
+    , clusterCentroid :: Map MoodDimension Double
     , clusterSize :: Int
     , clusterLabels :: [FuzzyLabel]
     }
@@ -154,6 +130,31 @@ instance FromJSON MoodCluster where
             <*> v .: "centroid"
             <*> v .: "size"
             <*> v .: "labels"
+
+data Gap = Gap
+    { gapStart :: Day
+    , gapLength :: Int
+    , gapBefore :: Day
+    , gapAfter :: Day
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON Gap where
+    toJSON g =
+        object
+            [ "start" .= gapStart g
+            , "length" .= gapLength g
+            , "before" .= gapBefore g
+            , "after" .= gapAfter g
+            ]
+
+instance FromJSON Gap where
+    parseJSON = withObject "Gap" $ \v ->
+        Gap
+            <$> v .: "start"
+            <*> v .: "length"
+            <*> v .: "before"
+            <*> v .: "after"
 
 -- | The result of a fuzzy analysis over mood entries.
 data AnalysisResult = AnalysisResult

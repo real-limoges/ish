@@ -10,16 +10,18 @@ module Ish.Analysis.Fuzzy (
 -- import Hazy.Inference (Rule, evaluate)
 -- import Hazy.Defuzzify (centroid, bisector, meanOfMaxima)
 
-import Ish.Types (AnalysisResult, MoodCluster, MoodEntry)
+import DataFrame (DataFrame)
 
-{- | Run fuzzy analysis on mood history.
+import Ish.Types (AnalysisResult, MoodCluster)
 
-Flow: MoodEntry list → fuzzy set membership → inference rules →
-defuzzify → AnalysisResult
+{- | Run fuzzy analysis on a date-spine mood DataFrame.
+
+Flow: DataFrame (nullable dimensions) → fuzzy set membership →
+inference rules → defuzzify → AnalysisResult
 -}
-analyzeMoodEntries :: [MoodEntry] -> AnalysisResult
-analyzeMoodEntries _entries = error "TODO: implement analyzeMoodEntries using hazy"
+analyzeMoodEntries :: DataFrame -> AnalysisResult
+analyzeMoodEntries _df = error "TODO: implement analyzeMoodEntries using hazy"
 
 -- | Cluster mood entries using fuzzy similarity.
-clusterEntries :: [MoodEntry] -> [MoodCluster]
-clusterEntries _entries = error "TODO: implement clusterEntries using hazy"
+clusterEntries :: DataFrame -> [MoodCluster]
+clusterEntries _df = error "TODO: implement clusterEntries using hazy"

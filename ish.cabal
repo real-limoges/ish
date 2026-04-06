@@ -20,9 +20,12 @@ library
         Ish.Db
         Ish.Api
         Ish.Analysis.Api
+        Ish.Analysis.Cluster
         Ish.Analysis.DataFrame
-        Ish.Analysis.Server
+        Ish.Analysis.Fuzzify
         Ish.Analysis.Fuzzy
+        Ish.Analysis.Gaps
+        Ish.Analysis.Server
         Ish.Entries.Api
         Ish.Entries.Server
     build-depends:
@@ -37,6 +40,7 @@ library
         sqlite-simple,
         text,
         time,
+        vector,
         wai,
         warp
     hs-source-dirs:   src

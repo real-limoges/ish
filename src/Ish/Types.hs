@@ -1,5 +1,6 @@
 module Ish.Types (
     MoodDimension (..),
+    dimensionToText,
     MoodEntry (..),
     Gap (..),
     FuzzyLabel (..),
@@ -30,7 +31,7 @@ data MoodDimension
     | Anxiety
     | Sensitivity
     | Outlook
-    | MentalSpeed
+    | Speed
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 dimensionToText :: MoodDimension -> Text
@@ -38,14 +39,14 @@ dimensionToText Sleep = "sleep"
 dimensionToText Anxiety = "anxiety"
 dimensionToText Sensitivity = "sensitivity"
 dimensionToText Outlook = "outlook"
-dimensionToText MentalSpeed = "mentalSpeed"
+dimensionToText Speed = "speed"
 
 dimensionFromText :: Text -> Maybe MoodDimension
 dimensionFromText "sleep" = Just Sleep
 dimensionFromText "anxiety" = Just Anxiety
 dimensionFromText "sensitivity" = Just Sensitivity
 dimensionFromText "outlook" = Just Outlook
-dimensionFromText "mentalSpeed" = Just MentalSpeed
+dimensionFromText "speed" = Just Speed
 dimensionFromText _ = Nothing
 
 instance ToJSON MoodDimension where

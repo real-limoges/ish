@@ -24,7 +24,6 @@ fetchAllEntries conn = do
     rows <- query_ conn allEntriesQuery
     pure $ map rowToEntry rows
 
--- | Fetch mood entries within a date range (inclusive), ordered by date.
 fetchEntriesInRange :: Connection -> Day -> Day -> IO [MoodEntry]
 fetchEntriesInRange conn from to = do
     rows <- query conn rangeQuery (from, to)

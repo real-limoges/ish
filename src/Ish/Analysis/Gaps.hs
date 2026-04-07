@@ -17,7 +17,6 @@ import Ish.Analysis.Cluster (ClusterResult (..))
 import Ish.Analysis.DataFrame (extractEntries, extractPresentRows, identifyGaps)
 import Ish.Types (Gap (..), MoodCluster (..))
 
--- | Before/after cluster membership across a gap.
 data GapTransition = GapTransition
     { transitionGap :: Gap
     , transitionBefore :: Map Text Degree
@@ -35,7 +34,6 @@ instance ToJSON GapTransition where
             , "clusterChanged" .= transitionClusterChanged t
             ]
 
--- | Full gap analysis: transitions, distributions, and imputed memberships.
 data GapAnalysis = GapAnalysis
     { gapTransitions :: [GapTransition]
     , gapLengthDistribution :: Map Int Int
@@ -51,7 +49,6 @@ instance ToJSON GapAnalysis where
             , "imputedMemberships" .= gapImputedMemberships g
             ]
 
--- | Analyze gaps in the context of clustering results.
 analyzeGaps :: DataFrame -> ClusterResult -> GapAnalysis
 analyzeGaps df cr =
     let entries = extractEntries df

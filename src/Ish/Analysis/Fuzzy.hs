@@ -10,9 +10,6 @@ import Ish.Analysis.Cluster (ClusterConfig (..), ClusterResult (..), clusterMood
 import Ish.Analysis.Fuzzify (fuzzifyEntries)
 import Ish.Types (AnalysisResult (..), FuzzyLabel (..), MoodCluster (..))
 
--- | Run fuzzy analysis on a date-spine mood DataFrame.
---
--- Flow: DataFrame → fuzzify → cluster → label → AnalysisResult
 analyzeMoodEntries :: DataFrame -> AnalysisResult
 analyzeMoodEntries df =
     let fuzzified = fuzzifyEntries df
@@ -22,7 +19,6 @@ analyzeMoodEntries df =
             , analysisSummary = summarize cr
             }
 
--- | Cluster mood entries using fuzzy similarity with default parameters.
 clusterEntries :: DataFrame -> [MoodCluster]
 clusterEntries df =
     let fuzzified = fuzzifyEntries df
@@ -32,14 +28,12 @@ clusterEntries df =
 defaultClusterConfig :: ClusterConfig
 defaultClusterConfig = ClusterConfig{clusterK = 3, clusterM = 2.0}
 
--- | Derive a high-level summary from clustering results.
 summarize :: ClusterResult -> [FuzzyLabel]
 summarize cr =
     let total = sum (map clusterSize (resultClusters cr))
         weighted = concatMap (weightLabels total) (resultClusters cr)
      in mergeLabels weighted
 
--- | Scale a cluster's labels by its proportion of total data points.
 weightLabels :: Int -> MoodCluster -> [FuzzyLabel]
 weightLabels total mc =
     let w = fromIntegral (clusterSize mc) / fromIntegral total
@@ -47,9 +41,10 @@ weightLabels total mc =
         | l <- clusterLabels mc
         ]
 
--- | Combine FuzzyLabels with the same name, keeping the max degree.
 mergeLabels :: [FuzzyLabel] -> [FuzzyLabel]
 mergeLabels labels =
-    let grouped = Map.fromListWith max
-            [ (labelName l, labelMembership l) | l <- labels ]
-     in [ FuzzyLabel name deg | (name, deg) <- Map.toList grouped ]
+    let grouped =
+            Map.fromListWith
+                max
+                [(labelName l, labelMembership l) | l <- labels]
+     in [FuzzyLabel name deg | (name, deg) <- Map.toList grouped]

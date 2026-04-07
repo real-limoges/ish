@@ -7,9 +7,8 @@ import Servant.API (Get, JSON, Post, ReqBody, (:<|>), (:>))
 
 import Ish.Analysis.Cluster (ClusterConfig, ClusterResult)
 import Ish.Analysis.Gaps (GapAnalysis)
-import Ish.Types (AnalysisResult, MoodCluster, MoodEntry)
+import Ish.Types (AnalysisResult, MembershipFuncDefs, MoodCluster, MoodEntry)
 
--- | The analysis API.
 type AnalysisApi =
     "health" :> Get '[JSON] Text
         :<|> "analysis" :> Get '[JSON] AnalysisResult
@@ -17,3 +16,5 @@ type AnalysisApi =
         :<|> "data" :> Get '[JSON] [MoodEntry]
         :<|> "cluster" :> ReqBody '[JSON] ClusterConfig :> Post '[JSON] ClusterResult
         :<|> "gaps" :> Get '[JSON] GapAnalysis
+        :<|> "membership-functions" :> Get '[JSON] MembershipFuncDefs
+        :<|> "membership-functions" :> ReqBody '[JSON] MembershipFuncDefs :> Post '[JSON] MembershipFuncDefs

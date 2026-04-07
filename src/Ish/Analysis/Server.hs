@@ -4,6 +4,7 @@ module Ish.Analysis.Server (
 
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader (asks)
+import Data.IORef (readIORef, writeIORef)
 import Data.Text (Text)
 import Servant (ServerT, (:<|>) (..))
 
@@ -14,7 +15,7 @@ import Ish.Analysis.Fuzzy (analyzeMoodEntries, clusterEntries)
 import Ish.Analysis.Gaps (GapAnalysis, analyzeGaps)
 import Ish.App (AppEnv (..), AppM)
 import Ish.Db (fetchAllEntries)
-import Ish.Types (AnalysisResult, MoodCluster, MoodEntry)
+import Ish.Types (AnalysisResult, MembershipFuncDefs, MoodCluster, MoodEntry)
 
 analysisServer :: ServerT AnalysisApi AppM
 analysisServer =
@@ -24,6 +25,8 @@ analysisServer =
         :<|> dataHandler
         :<|> clusterHandler
         :<|> gapsHandler
+        :<|> getMembershipFnsHandler
+        :<|> postMembershipFnsHandler
 
 healthHandler :: AppM Text
 healthHandler = pure "ok"
@@ -40,20 +43,17 @@ clustersHandler = do
     df <- fillMissingDates <$> liftIO (fetchAllEntries conn)
     pure $ clusterEntries df
 
--- | GET /data — full sparse time series with raw values.
 dataHandler :: AppM [MoodEntry]
 dataHandler = do
     conn <- asks envConnection
     liftIO $ fetchAllEntries conn
 
--- | POST /cluster — run FCM with caller-specified k and m.
 clusterHandler :: ClusterConfig -> AppM ClusterResult
 clusterHandler cfg = do
     conn <- asks envConnection
     df <- fillMissingDates <$> liftIO (fetchAllEntries conn)
     pure $ clusterMoodData cfg df
 
--- | GET /gaps — gap analysis with transitions and distributions.
 gapsHandler :: AppM GapAnalysis
 gapsHandler = do
     conn <- asks envConnection
@@ -63,3 +63,14 @@ gapsHandler = do
     pure $ analyzeGaps df cr
   where
     defaultCfg = ClusterConfig{clusterK = 3, clusterM = 2.0}
+
+getMembershipFnsHandler :: AppM MembershipFuncDefs
+getMembershipFnsHandler = do
+    ref <- asks envMembershipFns
+    liftIO $ readIORef ref
+
+postMembershipFnsHandler :: MembershipFuncDefs -> AppM MembershipFuncDefs
+postMembershipFnsHandler defs = do
+    ref <- asks envMembershipFns
+    liftIO $ writeIORef ref defs
+    pure defs

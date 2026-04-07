@@ -6,6 +6,9 @@ module Ish.Types (
     FuzzyLabel (..),
     MoodCluster (..),
     AnalysisResult (..),
+    TermDef (..),
+    VarDef (..),
+    MembershipFuncDefs (..),
 ) where
 
 import Data.Aeson (
@@ -86,7 +89,6 @@ instance FromJSON MoodEntry where
             <$> v .: "date"
             <*> v .: "dimensions"
 
--- | A fuzzy label with its membership degree.
 data FuzzyLabel = FuzzyLabel
     { labelName :: Text
     , labelMembership :: Degree
@@ -106,7 +108,6 @@ instance FromJSON FuzzyLabel where
             <$> v .: "label"
             <*> v .: "membership"
 
--- | A cluster of mood entries.
 data MoodCluster = MoodCluster
     { clusterName :: Text
     , clusterCentroid :: Map MoodDimension Double
@@ -157,7 +158,6 @@ instance FromJSON Gap where
             <*> v .: "before"
             <*> v .: "after"
 
--- | The result of a fuzzy analysis over mood entries.
 data AnalysisResult = AnalysisResult
     { analysisClusters :: [MoodCluster]
     , analysisSummary :: [FuzzyLabel]
@@ -176,3 +176,68 @@ instance FromJSON AnalysisResult where
         AnalysisResult
             <$> v .: "clusters"
             <*> v .: "summary"
+
+-- | termParams is (left foot, peak, right foot) of a triangle.
+data TermDef = TermDef
+    { termName :: Text
+    , termParams :: (Double, Double, Double)
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON TermDef where
+    toJSON t =
+        object
+            [ "name" .= termName t
+            , "params" .= let (a, b, c) = termParams t in [a, b, c]
+            ]
+
+instance FromJSON TermDef where
+    parseJSON = withObject "TermDef" $ \v -> do
+        n <- v .: "name"
+        ps <- v .: "params"
+        case ps of
+            [a, b, c] -> pure $ TermDef n (a, b, c)
+            _ -> fail "params must be a 3-element array [left, peak, right]"
+
+data VarDef = VarDef
+    { varName :: Text
+    , varBounds :: (Double, Double)
+    , varTerms :: [TermDef]
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON VarDef where
+    toJSON v =
+        object
+            [ "name" .= varName v
+            , "bounds" .= let (lo, hi) = varBounds v in [lo, hi]
+            , "terms" .= varTerms v
+            ]
+
+instance FromJSON VarDef where
+    parseJSON = withObject "VarDef" $ \v -> do
+        n <- v .: "name"
+        bs <- v .: "bounds"
+        ts <- v .: "terms"
+        case bs of
+            [lo, hi] -> pure $ VarDef n (lo, hi) ts
+            _ -> fail "bounds must be a 2-element array [lo, hi]"
+
+data MembershipFuncDefs = MembershipFuncDefs
+    { mfdInputs :: [VarDef]
+    , mfdOutputs :: [VarDef]
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON MembershipFuncDefs where
+    toJSON m =
+        object
+            [ "inputs" .= mfdInputs m
+            , "outputs" .= mfdOutputs m
+            ]
+
+instance FromJSON MembershipFuncDefs where
+    parseJSON = withObject "MembershipFuncDefs" $ \v ->
+        MembershipFuncDefs
+            <$> v .: "inputs"
+            <*> v .: "outputs"

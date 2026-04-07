@@ -6,25 +6,26 @@ module Ish.App (
 ) where
 
 import Control.Monad.Reader (ReaderT, runReaderT)
+import Data.IORef (IORef)
 import Database.SQLite.Simple (Connection)
 import Servant (Handler)
 
--- | Application configuration.
+import Ish.Types (MembershipFuncDefs)
+
 data Config = Config
     { configPort :: Int
     , configDbPath :: FilePath
     }
     deriving stock (Show)
 
--- | Runtime environment available to all handlers.
 data AppEnv = AppEnv
     { envConfig :: Config
     , envConnection :: Connection
+    , envMembershipFns :: IORef MembershipFuncDefs
     }
 
--- | The application monad: ReaderT over Servant's Handler.
 type AppM = ReaderT AppEnv Handler
 
--- | Natural transformation from AppM to Handler.
+-- | Natural transformation for Servant's hoistServer.
 runAppM :: AppEnv -> AppM a -> Handler a
 runAppM env action = runReaderT action env

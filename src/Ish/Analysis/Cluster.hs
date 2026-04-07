@@ -16,12 +16,9 @@ import Ish.Analysis.DataFrame (extractPresentRows)
 import Ish.Analysis.Fuzzify (moodFIS)
 import Ish.Types (FuzzyLabel (..), MoodCluster (..), MoodDimension (..), dimensionToText)
 
--- | Clustering parameters exposed to the API.
 data ClusterConfig = ClusterConfig
     { clusterK :: Int
-    -- ^ Number of clusters.
     , clusterM :: Double
-    -- ^ Fuzziness exponent (1.0 = hard, 2.0 = classic default).
     }
     deriving stock (Show, Eq)
 
@@ -32,7 +29,6 @@ instance FromJSON ClusterConfig where
     parseJSON = withObject "ClusterConfig" $ \v ->
         ClusterConfig <$> v .: "k" <*> v .: "m"
 
--- | Full clustering result: labelled clusters plus raw FCM output.
 data ClusterResult = ClusterResult
     { resultClusters :: [MoodCluster]
     , resultCenters :: Vector (Vector Double)
@@ -50,7 +46,6 @@ instance ToJSON ClusterResult where
             , "iterations" .= resultIterations r
             ]
 
--- | Run FCM on a date-spine DataFrame using the given parameters.
 clusterMoodData :: ClusterConfig -> DataFrame -> ClusterResult
 clusterMoodData cfg df =
     let (points, _dateMap) = extractPresentRows df
@@ -65,19 +60,20 @@ clusterMoodData cfg df =
             }
 
 toFCMConfig :: ClusterConfig -> FCMConfig
-toFCMConfig c = FCMConfig
-    { fcmClusters = clusterK c
-    , fcmFuzziness = clusterM c
-    , fcmEpsilon = 1e-5
-    , fcmMaxIter = 100
-    }
+toFCMConfig c =
+    FCMConfig
+        { fcmClusters = clusterK c
+        , fcmFuzziness = clusterM c
+        , fcmEpsilon = 1e-5
+        , fcmMaxIter = 100
+        }
 
 dimOrder :: [MoodDimension]
 dimOrder = [Sleep, Anxiety, Sensitivity, Outlook, Speed]
 
 labelCenters :: Vector (Vector Double) -> Vector (Vector Degree) -> [MoodCluster]
 labelCenters centers membership =
-    [ mkCluster i center | (i, center) <- zip [0 ..] (V.toList centers) ]
+    [mkCluster i center | (i, center) <- zip [0 ..] (V.toList centers)]
   where
     mkCluster i center =
         let centroidMap = Map.fromList (zip dimOrder (V.toList center))
@@ -91,11 +87,12 @@ labelCenters centers membership =
                         | deg > 3.33 = "medium"
                         | otherwise = "low"
                 ]
-            size = length
-                [ ()
-                | row <- V.toList membership
-                , V.maxIndex row == i
-                ]
+            size =
+                length
+                    [ ()
+                    | row <- V.toList membership
+                    , V.maxIndex row == i
+                    ]
             name = T.intercalate " / " [labelName l | l <- labels]
          in MoodCluster
                 { clusterName = name

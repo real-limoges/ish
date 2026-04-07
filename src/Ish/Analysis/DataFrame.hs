@@ -16,7 +16,6 @@ import DataFrame qualified as D
 
 import Ish.Types (Gap (..), MoodDimension (..), MoodEntry (..))
 
--- | Date-spine DataFrame: one row per day min–max, Nothing for absent days.
 fillMissingDates :: [MoodEntry] -> D.DataFrame
 fillMissingDates [] = D.empty
 fillMissingDates (e : es) =
@@ -47,9 +46,6 @@ fillMissingDates (e : es) =
             , ("speed", D.fromList msCol)
             ]
 
-{- | Find all gaps — groupBy runs, zip3 for before/after context.
-Safe to zip3 because the spine always starts and ends on a present day.
--}
 identifyGaps :: [MoodEntry] -> [Gap]
 identifyGaps [] = []
 identifyGaps [_] = []
@@ -84,9 +80,6 @@ summarize first rest =
         , Map.insert (entryDate x) x byDate
         )
 
--- | Extract present rows as vectors for FCM, plus a row-index-to-Day map.
---
--- Only rows where all 5 dimensions are present are included.
 extractPresentRows :: D.DataFrame -> (V.Vector (V.Vector Double), Map.Map Int Day)
 extractPresentRows df =
     let dimNames = ["sleep", "anxiety", "sensitivity", "outlook", "speed"] :: [Text.Text]
@@ -101,7 +94,6 @@ extractPresentRows df =
         (vecs, days) = unzip present
      in (V.fromList vecs, Map.fromList (zip [0 ..] days))
 
--- | Reconstruct MoodEntries from a date-spine DataFrame (only present rows).
 extractEntries :: D.DataFrame -> [MoodEntry]
 extractEntries df =
     let dimNames = ["sleep", "anxiety", "sensitivity", "outlook", "speed"] :: [Text.Text]

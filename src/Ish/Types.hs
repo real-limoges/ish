@@ -1,12 +1,14 @@
 module Ish.Types (
-    Score,
-    mkScore,
-    unScore,
     MoodDimension (..),
+    dimensionToText,
     MoodEntry (..),
+    Gap (..),
     FuzzyLabel (..),
     MoodCluster (..),
     AnalysisResult (..),
+    TermDef (..),
+    VarDef (..),
+    MembershipFuncDefs (..),
 ) where
 
 import Data.Aeson (
@@ -17,7 +19,6 @@ import Data.Aeson (
     ToJSONKey (..),
     object,
     withObject,
-    withScientific,
     withText,
     (.:),
     (.=),
@@ -26,34 +27,14 @@ import Data.Aeson.Types (toJSONKeyText)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Time.Calendar (Day)
+import Hazy (Degree)
 
--- | A score clamped to [0, 1].
-newtype Score = Score {unScore :: Double}
-    deriving newtype (Eq, Ord, Show)
-
--- | Smart constructor that clamps to [0, 1].
-mkScore :: Double -> Maybe Score
-mkScore d
-    | d >= 0 && d <= 1 = Just (Score d)
-    | otherwise = Nothing
-
-instance ToJSON Score where
-    toJSON (Score d) = toJSON d
-
-instance FromJSON Score where
-    parseJSON = withScientific "Score" $ \s ->
-        let d = realToFrac s
-         in case mkScore d of
-                Just sc -> pure sc
-                Nothing -> fail $ "Score out of range [0,1]: " <> show d
-
--- | The five mood dimensions.
 data MoodDimension
     = Sleep
     | Anxiety
     | Sensitivity
     | Outlook
-    | MentalSpeed
+    | Speed
     deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 dimensionToText :: MoodDimension -> Text
@@ -61,14 +42,14 @@ dimensionToText Sleep = "sleep"
 dimensionToText Anxiety = "anxiety"
 dimensionToText Sensitivity = "sensitivity"
 dimensionToText Outlook = "outlook"
-dimensionToText MentalSpeed = "mentalSpeed"
+dimensionToText Speed = "speed"
 
 dimensionFromText :: Text -> Maybe MoodDimension
 dimensionFromText "sleep" = Just Sleep
 dimensionFromText "anxiety" = Just Anxiety
 dimensionFromText "sensitivity" = Just Sensitivity
 dimensionFromText "outlook" = Just Outlook
-dimensionFromText "mentalSpeed" = Just MentalSpeed
+dimensionFromText "speed" = Just Speed
 dimensionFromText _ = Nothing
 
 instance ToJSON MoodDimension where
@@ -89,10 +70,9 @@ instance FromJSONKey MoodDimension where
             Just d -> pure d
             Nothing -> fail $ "Unknown MoodDimension key: " <> show t
 
--- | A single mood entry from the database.
 data MoodEntry = MoodEntry
     { entryDate :: Day
-    , entryDimensions :: Map MoodDimension Score
+    , entryDimensions :: Map MoodDimension Double
     }
     deriving stock (Eq, Show)
 
@@ -109,10 +89,9 @@ instance FromJSON MoodEntry where
             <$> v .: "date"
             <*> v .: "dimensions"
 
--- | A fuzzy label with its membership degree.
 data FuzzyLabel = FuzzyLabel
     { labelName :: Text
-    , labelMembership :: Score
+    , labelMembership :: Degree
     }
     deriving stock (Eq, Show)
 
@@ -129,10 +108,9 @@ instance FromJSON FuzzyLabel where
             <$> v .: "label"
             <*> v .: "membership"
 
--- | A cluster of mood entries.
 data MoodCluster = MoodCluster
     { clusterName :: Text
-    , clusterCentroid :: Map MoodDimension Score
+    , clusterCentroid :: Map MoodDimension Double
     , clusterSize :: Int
     , clusterLabels :: [FuzzyLabel]
     }
@@ -155,7 +133,31 @@ instance FromJSON MoodCluster where
             <*> v .: "size"
             <*> v .: "labels"
 
--- | The result of a fuzzy analysis over mood entries.
+data Gap = Gap
+    { gapStart :: Day
+    , gapLength :: Int
+    , gapBefore :: Day
+    , gapAfter :: Day
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON Gap where
+    toJSON g =
+        object
+            [ "start" .= gapStart g
+            , "length" .= gapLength g
+            , "before" .= gapBefore g
+            , "after" .= gapAfter g
+            ]
+
+instance FromJSON Gap where
+    parseJSON = withObject "Gap" $ \v ->
+        Gap
+            <$> v .: "start"
+            <*> v .: "length"
+            <*> v .: "before"
+            <*> v .: "after"
+
 data AnalysisResult = AnalysisResult
     { analysisClusters :: [MoodCluster]
     , analysisSummary :: [FuzzyLabel]
@@ -174,3 +176,68 @@ instance FromJSON AnalysisResult where
         AnalysisResult
             <$> v .: "clusters"
             <*> v .: "summary"
+
+-- | termParams is (left foot, peak, right foot) of a triangle.
+data TermDef = TermDef
+    { termName :: Text
+    , termParams :: (Double, Double, Double)
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON TermDef where
+    toJSON t =
+        object
+            [ "name" .= termName t
+            , "params" .= let (a, b, c) = termParams t in [a, b, c]
+            ]
+
+instance FromJSON TermDef where
+    parseJSON = withObject "TermDef" $ \v -> do
+        n <- v .: "name"
+        ps <- v .: "params"
+        case ps of
+            [a, b, c] -> pure $ TermDef n (a, b, c)
+            _ -> fail "params must be a 3-element array [left, peak, right]"
+
+data VarDef = VarDef
+    { varName :: Text
+    , varBounds :: (Double, Double)
+    , varTerms :: [TermDef]
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON VarDef where
+    toJSON v =
+        object
+            [ "name" .= varName v
+            , "bounds" .= let (lo, hi) = varBounds v in [lo, hi]
+            , "terms" .= varTerms v
+            ]
+
+instance FromJSON VarDef where
+    parseJSON = withObject "VarDef" $ \v -> do
+        n <- v .: "name"
+        bs <- v .: "bounds"
+        ts <- v .: "terms"
+        case bs of
+            [lo, hi] -> pure $ VarDef n (lo, hi) ts
+            _ -> fail "bounds must be a 2-element array [lo, hi]"
+
+data MembershipFuncDefs = MembershipFuncDefs
+    { mfdInputs :: [VarDef]
+    , mfdOutputs :: [VarDef]
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON MembershipFuncDefs where
+    toJSON m =
+        object
+            [ "inputs" .= mfdInputs m
+            , "outputs" .= mfdOutputs m
+            ]
+
+instance FromJSON MembershipFuncDefs where
+    parseJSON = withObject "MembershipFuncDefs" $ \v ->
+        MembershipFuncDefs
+            <$> v .: "inputs"
+            <*> v .: "outputs"

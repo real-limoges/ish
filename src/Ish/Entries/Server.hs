@@ -15,7 +15,6 @@ import Ish.Types (MoodEntry)
 entriesServer :: ServerT EntriesApi AppM
 entriesServer = getEntries
 
--- | GET /entries with optional ?from=...&to=... date range.
 getEntries :: Maybe Day -> Maybe Day -> AppM [MoodEntry]
 getEntries mFrom mTo = do
     conn <- asks envConnection

@@ -3,23 +3,48 @@ module Ish.Analysis.Fuzzy (
     clusterEntries,
 ) where
 
--- Expected hazy imports (only import site for hazy in the project):
---
--- import Hazy.FuzzySet (triangular, trapezoidal, membershipDegree)
--- import Hazy.Operations (fuzzyUnion, fuzzyIntersect, complement)
--- import Hazy.Inference (Rule, evaluate)
--- import Hazy.Defuzzify (centroid, bisector, meanOfMaxima)
+import Data.Map.Strict qualified as Map
+import DataFrame (DataFrame)
 
-import Ish.Types (AnalysisResult, MoodCluster, MoodEntry)
+import Ish.Analysis.Cluster (ClusterConfig (..), ClusterResult (..), clusterMoodData)
+import Ish.Analysis.Fuzzify (fuzzifyEntries)
+import Ish.Types (AnalysisResult (..), FuzzyLabel (..), MoodCluster (..))
 
-{- | Run fuzzy analysis on mood history.
+analyzeMoodEntries :: DataFrame -> AnalysisResult
+analyzeMoodEntries df =
+    let fuzzified = fuzzifyEntries df
+        cr = clusterMoodData defaultClusterConfig fuzzified
+     in AnalysisResult
+            { analysisClusters = resultClusters cr
+            , analysisSummary = summarize cr
+            }
 
-Flow: MoodEntry list → fuzzy set membership → inference rules →
-defuzzify → AnalysisResult
--}
-analyzeMoodEntries :: [MoodEntry] -> AnalysisResult
-analyzeMoodEntries _entries = error "TODO: implement analyzeMoodEntries using hazy"
+clusterEntries :: DataFrame -> [MoodCluster]
+clusterEntries df =
+    let fuzzified = fuzzifyEntries df
+        cr = clusterMoodData defaultClusterConfig fuzzified
+     in resultClusters cr
 
--- | Cluster mood entries using fuzzy similarity.
-clusterEntries :: [MoodEntry] -> [MoodCluster]
-clusterEntries _entries = error "TODO: implement clusterEntries using hazy"
+defaultClusterConfig :: ClusterConfig
+defaultClusterConfig = ClusterConfig{clusterK = 3, clusterM = 2.0}
+
+summarize :: ClusterResult -> [FuzzyLabel]
+summarize cr =
+    let total = sum (map clusterSize (resultClusters cr))
+        weighted = concatMap (weightLabels total) (resultClusters cr)
+     in mergeLabels weighted
+
+weightLabels :: Int -> MoodCluster -> [FuzzyLabel]
+weightLabels total mc =
+    let w = fromIntegral (clusterSize mc) / fromIntegral total
+     in [ FuzzyLabel (labelName l) (labelMembership l * w)
+        | l <- clusterLabels mc
+        ]
+
+mergeLabels :: [FuzzyLabel] -> [FuzzyLabel]
+mergeLabels labels =
+    let grouped =
+            Map.fromListWith
+                max
+                [(labelName l, labelMembership l) | l <- labels]
+     in [FuzzyLabel name deg | (name, deg) <- Map.toList grouped]

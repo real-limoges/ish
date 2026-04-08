@@ -17,3 +17,6 @@ jobs:
     uses: real-limoges/real-complex/.github/workflows/deploy-service.yml@main
     with:
       service_name: ish
+    permissions:
+      contents: read
+      id-token: write

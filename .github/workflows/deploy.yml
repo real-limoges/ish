@@ -17,6 +17,7 @@ jobs:
     uses: real-limoges/real-complex/.github/workflows/deploy-service.yml@main
     with:
       service_name: ish
+      service_account: ish-runner@realcomplex-prod.iam.gserviceaccount.com
     permissions:
       contents: read
       id-token: write

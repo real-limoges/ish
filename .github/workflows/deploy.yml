@@ -1,0 +1,18 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: test
+    uses: real-limoges/real-complex/.github/workflows/deploy-service.yml@main
+    with:
+      service_name: ish
+    permissions:
+      contents: read
+      id-token: write

@@ -13,11 +13,13 @@ FROM debian:bookworm-slim
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      libsqlite3-0 libgmp10 libffi8 libnuma1 \
+      libsqlite3-0 libgmp10 libffi8 libnuma1 python3 \
  && rm -rf /var/lib/apt/lists/*
 
+COPY data/ish_data.csv data/load.py /data/
+RUN cd /data && python3 load.py && rm -f load.py ish_data.csv
+
 COPY --from=build /app/ish-server /usr/local/bin/ish
-COPY data/ish.db /data/ish.db
 
 ENV ISH_PORT=7333
 ENV ISH_DB_PATH=/data/ish.db

@@ -7,7 +7,7 @@ RUN cabal update && cabal build --only-dependencies
 
 COPY . .
 RUN cabal build exe:ish \
- && cp "$(cabal list-bin ish)" /app/ish-server
+ && cp "$(cabal list-bin ish | tail -1)" /app/ish-server
 
 FROM debian:bookworm-slim
 
@@ -17,10 +17,9 @@ RUN apt-get update \
 
 COPY --from=build /app/ish-server /usr/local/bin/ish
 
-ENV ISH_PORT=8080
+ENV ISH_PORT=7333
 ENV ISH_DB_PATH=/data/ish.db
-
-EXPOSE 8080
+EXPOSE 7333
 
 VOLUME ["/data"]
 

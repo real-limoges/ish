@@ -3,6 +3,7 @@
 
 import csv
 import sqlite3
+from datetime import date
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent
@@ -26,27 +27,40 @@ VALUES (?, ?, ?, ?, ?, ?);
 """
 
 
+START_DATE = date(2022, 4, 1)
+
+
 def main():
     conn = sqlite3.connect(DB_PATH)
     conn.execute(CREATE_TABLE)
+    today = date.today()
 
     with open(CSV_PATH, newline="") as f:
         reader = csv.DictReader(f)
-        rows = [
-            (
-                row["date"],
-                float(row["sleep"]),
-                float(row["speed"]),
-                float(row["anxiety"]),
-                float(row["sensitivity"]),
-                float(row["outlook"]),
+        rows = []
+        skipped = 0
+        for row in reader:
+            if not row["date"].strip():
+                skipped += 1
+                continue
+            entry_date = date.fromisoformat(row["date"])
+            if entry_date < START_DATE or entry_date > today:
+                skipped += 1
+                continue
+            rows.append(
+                (
+                    row["date"],
+                    float(row["sleep"]),
+                    float(row["speed"]),
+                    float(row["anxiety"]),
+                    float(row["sensitivity"]),
+                    float(row["outlook"]),
+                )
             )
-            for row in reader
-        ]
 
     conn.executemany(INSERT, rows)
     conn.commit()
-    print(f"Loaded {len(rows)} rows into {DB_PATH}")
+    print(f"Loaded {len(rows)} rows into {DB_PATH} (skipped {skipped} out-of-range)")
     conn.close()
 
 

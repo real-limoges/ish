@@ -1,5 +1,6 @@
 module Main (main) where
 
+import Control.Applicative ((<|>))
 import Data.IORef (newIORef)
 import Data.Maybe (fromMaybe)
 import Network.Wai.Handler.Warp (run)
@@ -13,7 +14,10 @@ import Ish.Db (openDb)
 
 main :: IO ()
 main = do
-    port <- fromMaybe 8080 . (>>= readMaybe) <$> lookupEnv "ISH_PORT"
+    -- Cloud Run sets PORT; fall back to ISH_PORT for local dev
+    portStr <- lookupEnv "PORT"
+    ishPortStr <- lookupEnv "ISH_PORT"
+    let port = fromMaybe 8080 ((portStr >>= readMaybe) <|> (ishPortStr >>= readMaybe))
     dbPath <- fromMaybe "data/ish.db" <$> lookupEnv "ISH_DB_PATH"
     let config = Config{configPort = port, configDbPath = dbPath}
     conn <- openDb dbPath

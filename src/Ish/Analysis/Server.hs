@@ -6,11 +6,13 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader (asks)
 import Data.IORef (readIORef, writeIORef)
 import Data.Text (Text)
+import Hazy (FIS)
 import Servant (ServerT, (:<|>) (..))
 
 import Ish.Analysis.Api (AnalysisApi)
 import Ish.Analysis.Cluster (ClusterConfig (..), ClusterResult, clusterMoodData)
 import Ish.Analysis.DataFrame (fillMissingDates)
+import Ish.Analysis.Fuzzify (buildFIS, suggestMembershipFuncDefs)
 import Ish.Analysis.Fuzzy (analyzeMoodEntries, clusterEntries)
 import Ish.Analysis.Gaps (GapAnalysis, analyzeGaps)
 import Ish.App (AppEnv (..), AppM)
@@ -27,21 +29,34 @@ analysisServer =
         :<|> gapsHandler
         :<|> getMembershipFnsHandler
         :<|> postMembershipFnsHandler
+        :<|> suggestMembershipFnsHandler
 
 healthHandler :: AppM Text
 healthHandler = pure "ok"
 
+{- | Reads the current MembershipFuncDefs from the AppEnv IORef and builds a FIS.
+Every handler that runs the fuzzify/cluster pipeline calls this so that
+POST /membership-functions edits take effect on subsequent requests.
+-}
+currentFis :: AppM FIS
+currentFis = do
+    ref <- asks envMembershipFns
+    defs <- liftIO $ readIORef ref
+    pure (buildFIS defs)
+
 analysisHandler :: AppM AnalysisResult
 analysisHandler = do
     conn <- asks envConnection
+    fis <- currentFis
     df <- fillMissingDates <$> liftIO (fetchAllEntries conn)
-    pure $ analyzeMoodEntries df
+    pure $ analyzeMoodEntries fis df
 
 clustersHandler :: AppM [MoodCluster]
 clustersHandler = do
     conn <- asks envConnection
+    fis <- currentFis
     df <- fillMissingDates <$> liftIO (fetchAllEntries conn)
-    pure $ clusterEntries df
+    pure $ clusterEntries fis df
 
 dataHandler :: AppM [MoodEntry]
 dataHandler = do
@@ -51,15 +66,17 @@ dataHandler = do
 clusterHandler :: ClusterConfig -> AppM ClusterResult
 clusterHandler cfg = do
     conn <- asks envConnection
+    fis <- currentFis
     df <- fillMissingDates <$> liftIO (fetchAllEntries conn)
-    pure $ clusterMoodData cfg df
+    pure $ clusterMoodData fis cfg df
 
 gapsHandler :: AppM GapAnalysis
 gapsHandler = do
     conn <- asks envConnection
+    fis <- currentFis
     entries <- liftIO $ fetchAllEntries conn
     let df = fillMissingDates entries
-        cr = clusterMoodData defaultCfg df
+        cr = clusterMoodData fis defaultCfg df
     pure $ analyzeGaps df cr
   where
     defaultCfg = ClusterConfig{clusterK = 3, clusterM = 2.0}
@@ -74,3 +91,15 @@ postMembershipFnsHandler defs = do
     ref <- asks envMembershipFns
     liftIO $ writeIORef ref defs
     pure defs
+
+{- | Derives candidate MembershipFuncDefs from the current data distribution
+(percentile-based). Does NOT mutate envMembershipFns — the caller decides
+whether to apply the result via POST /membership-functions.
+-}
+suggestMembershipFnsHandler :: AppM MembershipFuncDefs
+suggestMembershipFnsHandler = do
+    conn <- asks envConnection
+    ref <- asks envMembershipFns
+    current <- liftIO $ readIORef ref
+    entries <- liftIO $ fetchAllEntries conn
+    pure $ suggestMembershipFuncDefs current (fillMissingDates entries)

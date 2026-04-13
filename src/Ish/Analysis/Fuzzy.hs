@@ -5,24 +5,25 @@ module Ish.Analysis.Fuzzy (
 
 import Data.Map.Strict qualified as Map
 import DataFrame (DataFrame)
+import Hazy (FIS)
 
 import Ish.Analysis.Cluster (ClusterConfig (..), ClusterResult (..), clusterMoodData)
-import Ish.Analysis.Fuzzify (fuzzifyEntries)
+import Ish.Analysis.Fuzzify (fuzzifyEntriesWith)
 import Ish.Types (AnalysisResult (..), FuzzyLabel (..), MoodCluster (..))
 
-analyzeMoodEntries :: DataFrame -> AnalysisResult
-analyzeMoodEntries df =
-    let fuzzified = fuzzifyEntries df
-        cr = clusterMoodData defaultClusterConfig fuzzified
+analyzeMoodEntries :: FIS -> DataFrame -> AnalysisResult
+analyzeMoodEntries fis df =
+    let fuzzified = fuzzifyEntriesWith fis df
+        cr = clusterMoodData fis defaultClusterConfig fuzzified
      in AnalysisResult
             { analysisClusters = resultClusters cr
             , analysisSummary = summarize cr
             }
 
-clusterEntries :: DataFrame -> [MoodCluster]
-clusterEntries df =
-    let fuzzified = fuzzifyEntries df
-        cr = clusterMoodData defaultClusterConfig fuzzified
+clusterEntries :: FIS -> DataFrame -> [MoodCluster]
+clusterEntries fis df =
+    let fuzzified = fuzzifyEntriesWith fis df
+        cr = clusterMoodData fis defaultClusterConfig fuzzified
      in resultClusters cr
 
 defaultClusterConfig :: ClusterConfig

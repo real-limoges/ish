@@ -10,10 +10,9 @@ import Data.Text qualified as T
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import DataFrame (DataFrame)
-import Hazy (Degree, FCMConfig (..), FCMResult (..), evaluate, fcm)
+import Hazy (Degree, FCMConfig (..), FCMResult (..), FIS, evaluate, fcm)
 
 import Ish.Analysis.DataFrame (extractPresentRows)
-import Ish.Analysis.Fuzzify (moodFIS)
 import Ish.Types (FuzzyLabel (..), MoodCluster (..), MoodDimension (..), dimensionToText)
 
 data ClusterConfig = ClusterConfig
@@ -46,12 +45,12 @@ instance ToJSON ClusterResult where
             , "iterations" .= resultIterations r
             ]
 
-clusterMoodData :: ClusterConfig -> DataFrame -> ClusterResult
-clusterMoodData cfg df =
+clusterMoodData :: FIS -> ClusterConfig -> DataFrame -> ClusterResult
+clusterMoodData fis cfg df =
     let (points, _dateMap) = extractPresentRows df
         fcmCfg = toFCMConfig cfg
         result = fcm fcmCfg points
-        clusters = labelCenters (fcmCenters result) (fcmMembership result)
+        clusters = labelCenters fis (fcmCenters result) (fcmMembership result)
      in ClusterResult
             { resultClusters = clusters
             , resultCenters = fcmCenters result
@@ -71,14 +70,14 @@ toFCMConfig c =
 dimOrder :: [MoodDimension]
 dimOrder = [Sleep, Anxiety, Sensitivity, Outlook, Speed]
 
-labelCenters :: Vector (Vector Double) -> Vector (Vector Degree) -> [MoodCluster]
-labelCenters centers membership =
+labelCenters :: FIS -> Vector (Vector Double) -> Vector (Vector Degree) -> [MoodCluster]
+labelCenters fis centers membership =
     [mkCluster i center | (i, center) <- zip [0 ..] (V.toList centers)]
   where
     mkCluster i center =
         let centroidMap = Map.fromList (zip dimOrder (V.toList center))
             fisInput = Map.fromList (zip (map dimensionToText dimOrder) (V.toList center))
-            fisOutput = evaluate moodFIS fisInput
+            fisOutput = evaluate fis fisInput
             labels =
                 [ FuzzyLabel (k <> " " <> lvl) deg
                 | (k, deg) <- Map.toList fisOutput

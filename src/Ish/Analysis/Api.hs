@@ -18,3 +18,4 @@ type AnalysisApi =
         :<|> "gaps" :> Get '[JSON] GapAnalysis
         :<|> "membership-functions" :> Get '[JSON] MembershipFuncDefs
         :<|> "membership-functions" :> ReqBody '[JSON] MembershipFuncDefs :> Post '[JSON] MembershipFuncDefs
+        :<|> "membership-functions" :> "suggest" :> Post '[JSON] MembershipFuncDefs

@@ -7,11 +7,13 @@ module Ish.Analysis.Fuzzify (
     moodFIS,
     fuzzifyEntries,
     fuzzifyEntriesWith,
+    suggestMembershipFuncDefs,
 ) where
 
-import Data.List (transpose)
+import Data.List (sort, transpose)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import DataFrame (DataFrame)
 import DataFrame qualified as D
@@ -110,3 +112,53 @@ fuzzifyEntriesWith fis df =
         case sequence vals of
             Nothing -> Nothing
             Just vs -> Just (evaluate fis (Map.fromList (zip names vs)))
+
+{- | Derive candidate term shapes for each input variable from the present
+values in the given DataFrame. Variable bounds are preserved from the
+supplied MembershipFuncDefs (they match the SQLite CHECK constraints and
+shouldn't be moved), as are the output-variable definitions. Terms are
+rebuilt per-input from column percentiles so the fuzzy lens tracks the
+actual distribution of logged values rather than textbook defaults.
+-}
+suggestMembershipFuncDefs :: MembershipFuncDefs -> DataFrame -> MembershipFuncDefs
+suggestMembershipFuncDefs current df =
+    current{mfdInputs = map suggestOne (mfdInputs current)}
+  where
+    suggestOne v =
+        let sorted = sort (presentValues (varName v) df)
+         in v{varTerms = suggestTerms (varBounds v) sorted}
+
+presentValues :: Text -> DataFrame -> [Double]
+presentValues name df =
+    catMaybes (D.columnAsList (D.col name :: D.Expr (Maybe Double)) df)
+
+{- | Percentile-anchored triangular terms. With no samples, fall back to a
+simple even three-way split so the suggestion is still well-formed.
+-}
+suggestTerms :: (Double, Double) -> [Double] -> [TermDef]
+suggestTerms (lo, hi) sorted
+    | null sorted =
+        let mid = (lo + hi) / 2
+         in [ TermDef "low" (lo, lo, mid)
+            , TermDef "medium" (lo, mid, hi)
+            , TermDef "high" (mid, hi, hi)
+            ]
+    | otherwise =
+        let p17 = percentile 0.17 sorted
+            p33 = percentile 0.33 sorted
+            p50 = percentile 0.50 sorted
+            p67 = percentile 0.67 sorted
+            p83 = percentile 0.83 sorted
+         in [ TermDef "low" (lo, lo, p33)
+            , TermDef "medium" (p17, p50, p83)
+            , TermDef "high" (p67, hi, hi)
+            ]
+
+{- | Nearest-rank percentile on an already-sorted, non-empty list.
+The caller guards the empty case.
+-}
+percentile :: Double -> [Double] -> Double
+percentile p sorted =
+    let n = length sorted
+        idx = max 0 (min (n - 1) (floor (p * fromIntegral (n - 1))))
+     in sorted !! idx

@@ -9,6 +9,9 @@ module Ish.Types (
     TermDef (..),
     VarDef (..),
     MembershipFuncDefs (..),
+    RuleDef (..),
+    MamdaniRequest (..),
+    MamdaniResponse (..),
 ) where
 
 import Data.Aeson (
@@ -17,13 +20,14 @@ import Data.Aeson (
     FromJSONKeyFunction (..),
     ToJSON (..),
     ToJSONKey (..),
+    Value,
     object,
     withObject,
     withText,
     (.:),
     (.=),
  )
-import Data.Aeson.Types (toJSONKeyText)
+import Data.Aeson.Types (Parser, toJSONKeyText)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
 import Data.Time.Calendar (Day)
@@ -241,3 +245,90 @@ instance FromJSON MembershipFuncDefs where
         MembershipFuncDefs
             <$> v .: "inputs"
             <*> v .: "outputs"
+
+-- | Wire format for a single fuzzy rule. @if@ / @then@ are lists of
+--   (variable, term) pairs; AND across the antecedents uses the min t-norm,
+--   matching Hazy's Mamdani.
+data RuleDef = RuleDef
+    { ruleDefIf :: [(Text, Text)]
+    , ruleDefThen :: [(Text, Text)]
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON RuleDef where
+    toJSON r =
+        object
+            [ "if" .= map pairToObject (ruleDefIf r)
+            , "then" .= map pairToObject (ruleDefThen r)
+            ]
+      where
+        pairToObject (var, term) = object ["var" .= var, "term" .= term]
+
+instance FromJSON RuleDef where
+    parseJSON = withObject "RuleDef" $ \v -> do
+        ifs <- v .: "if" >>= traverse parseVarTerm
+        thens <- v .: "then" >>= traverse parseVarTerm
+        pure $ RuleDef ifs thens
+
+parseVarTerm :: Value -> Parser (Text, Text)
+parseVarTerm = withObject "VarTerm" $ \o -> (,) <$> o .: "var" <*> o .: "term"
+
+
+-- | Request body for POST /inference/mamdani. Carries everything needed to
+--   build a one-shot FIS, run Mamdani inference, and return the intermediate
+--   state for visualization.
+data MamdaniRequest = MamdaniRequest
+    { mrDefs :: MembershipFuncDefs
+    , mrRules :: [RuleDef]
+    , mrValues :: Map Text Double
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON MamdaniRequest where
+    toJSON r =
+        object
+            [ "mfs" .= mrDefs r
+            , "rules" .= mrRules r
+            , "values" .= mrValues r
+            ]
+
+instance FromJSON MamdaniRequest where
+    parseJSON = withObject "MamdaniRequest" $ \v ->
+        MamdaniRequest
+            <$> v .: "mfs"
+            <*> v .: "rules"
+            <*> v .: "values"
+
+-- | Response body for POST /inference/mamdani. Mirrors 'Hazy.Inference.Types.InferenceTrace'
+--   as JSON. Curves are encoded as arrays of [x, y] pairs so JS consumers can
+--   splat them into d3 scales without reshaping.
+data MamdaniResponse = MamdaniResponse
+    { mrsInputDegrees :: Map Text (Map Text Double)
+    , mrsRuleStrengths :: [Double]
+    , mrsOutputCurves :: Map Text [(Double, Double)]
+    , mrsCrisp :: Map Text Double
+    }
+    deriving stock (Eq, Show)
+
+instance ToJSON MamdaniResponse where
+    toJSON r =
+        object
+            [ "input_degrees" .= mrsInputDegrees r
+            , "rule_strengths" .= mrsRuleStrengths r
+            , "output_curves" .= fmap (map (\(x, y) -> [x, y])) (mrsOutputCurves r)
+            , "crisp" .= mrsCrisp r
+            ]
+
+instance FromJSON MamdaniResponse where
+    parseJSON = withObject "MamdaniResponse" $ \v -> do
+        inDegrees <- v .: "input_degrees"
+        strengths <- v .: "rule_strengths"
+        curvesRaw <- v .: "output_curves" :: Parser (Map Text [[Double]])
+        crisp <- v .: "crisp"
+        curves <- traverse pairsOrFail curvesRaw
+        pure $ MamdaniResponse inDegrees strengths curves crisp
+      where
+        pairsOrFail :: [[Double]] -> Parser [(Double, Double)]
+        pairsOrFail = traverse $ \xs -> case xs of
+            [x, y] -> pure (x, y)
+            _ -> fail "output curve entries must be [x, y] pairs"

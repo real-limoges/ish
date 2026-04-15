@@ -12,12 +12,20 @@ import Servant (ServerT, (:<|>) (..))
 import Ish.Analysis.Api (AnalysisApi)
 import Ish.Analysis.Cluster (ClusterConfig (..), ClusterResult, clusterMoodData)
 import Ish.Analysis.DataFrame (fillMissingDates)
-import Ish.Analysis.Fuzzify (buildFIS, suggestMembershipFuncDefs)
+import Ish.Analysis.Fuzzify (buildMoodFIS, suggestMembershipFuncDefs)
 import Ish.Analysis.Fuzzy (analyzeMoodEntries, clusterEntries)
 import Ish.Analysis.Gaps (GapAnalysis, analyzeGaps)
+import Ish.Analysis.Mamdani (runMamdani)
 import Ish.App (AppEnv (..), AppM)
 import Ish.Db (fetchAllEntries)
-import Ish.Types (AnalysisResult, MembershipFuncDefs, MoodCluster, MoodEntry)
+import Ish.Types (
+    AnalysisResult,
+    MamdaniRequest,
+    MamdaniResponse,
+    MembershipFuncDefs,
+    MoodCluster,
+    MoodEntry,
+ )
 
 analysisServer :: ServerT AnalysisApi AppM
 analysisServer =
@@ -30,6 +38,7 @@ analysisServer =
         :<|> getMembershipFnsHandler
         :<|> postMembershipFnsHandler
         :<|> suggestMembershipFnsHandler
+        :<|> mamdaniHandler
 
 healthHandler :: AppM Text
 healthHandler = pure "ok"
@@ -42,7 +51,7 @@ currentFis :: AppM FIS
 currentFis = do
     ref <- asks envMembershipFns
     defs <- liftIO $ readIORef ref
-    pure (buildFIS defs)
+    pure (buildMoodFIS defs)
 
 analysisHandler :: AppM AnalysisResult
 analysisHandler = do
@@ -103,3 +112,9 @@ suggestMembershipFnsHandler = do
     current <- liftIO $ readIORef ref
     entries <- liftIO $ fetchAllEntries conn
     pure $ suggestMembershipFuncDefs current (fillMissingDates entries)
+
+-- | Pure, stateless Mamdani inference driven entirely by the request body.
+--   No database, no AppEnv — the caller supplies MFs, rules, and crisp inputs,
+--   and gets back the full intermediate trace for visualization.
+mamdaniHandler :: MamdaniRequest -> AppM MamdaniResponse
+mamdaniHandler = pure . runMamdani

@@ -25,6 +25,7 @@ library
         Ish.Analysis.Fuzzify
         Ish.Analysis.Fuzzy
         Ish.Analysis.Gaps
+        Ish.Analysis.Mamdani
         Ish.Analysis.Server
         Ish.Entries.Api
         Ish.Entries.Server
@@ -63,11 +64,25 @@ test-suite ish-test
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          Main.hs
+    other-modules:
+        Ish.Fixtures
+        Ish.DbSpec
+        Ish.TypesSpec
+        Ish.Analysis.ClusterSpec
+        Ish.Analysis.DataFrameSpec
+        Ish.Analysis.FuzzifySpec
+        Ish.Analysis.FuzzySpec
+        Ish.Analysis.GapsSpec
+        Ish.Analysis.MamdaniSpec
     build-depends:
         base ^>=4.21.0.0,
+        aeson,
         containers ^>=0.8,
-        tasty,
-        tasty-hunit,
+        dataframe,
+        hazy,
         ish,
         sqlite-simple ^>=0.4.19.0,
+        tasty,
+        tasty-hunit,
+        text,
         time ^>=1.14

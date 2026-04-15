@@ -7,7 +7,14 @@ import Servant.API (Get, JSON, Post, ReqBody, (:<|>), (:>))
 
 import Ish.Analysis.Cluster (ClusterConfig, ClusterResult)
 import Ish.Analysis.Gaps (GapAnalysis)
-import Ish.Types (AnalysisResult, MembershipFuncDefs, MoodCluster, MoodEntry)
+import Ish.Types (
+    AnalysisResult,
+    MamdaniRequest,
+    MamdaniResponse,
+    MembershipFuncDefs,
+    MoodCluster,
+    MoodEntry,
+ )
 
 type AnalysisApi =
     "health" :> Get '[JSON] Text
@@ -19,3 +26,4 @@ type AnalysisApi =
         :<|> "membership-functions" :> Get '[JSON] MembershipFuncDefs
         :<|> "membership-functions" :> ReqBody '[JSON] MembershipFuncDefs :> Post '[JSON] MembershipFuncDefs
         :<|> "membership-functions" :> "suggest" :> Post '[JSON] MembershipFuncDefs
+        :<|> "inference" :> "mamdani" :> ReqBody '[JSON] MamdaniRequest :> Post '[JSON] MamdaniResponse

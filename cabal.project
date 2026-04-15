@@ -6,6 +6,6 @@ allow-newer: all:base, all:transformers-compat, all:template-haskell, all:contai
 source-repository-package
   type: git
   location: https://github.com/real-limoges/hazy.git
-  tag: main
+  tag: 24d1e31e863cd3f3ebd6970e52212e66fb0b6a35
 
 tests: True

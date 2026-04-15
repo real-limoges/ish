@@ -2,6 +2,8 @@ module Ish.Analysis.Fuzzify (
     defaultMembershipFuncDefs,
     buildVars,
     buildFIS,
+    buildMoodFIS,
+    moodRules,
     moodInputVars,
     moodOutputVars,
     moodFIS,
@@ -63,15 +65,21 @@ buildVars = Map.fromList . map toVar
             }
         )
 
-buildFIS :: MembershipFuncDefs -> FIS
-buildFIS defs =
+-- | Build a Hazy FIS from wire-format MF defs plus a rule set. Generic; no
+--   mood-specific assumptions.
+buildFIS :: [FuzzyRule] -> MembershipFuncDefs -> FIS
+buildFIS rules defs =
     FIS
-        { fisName = "mood"
+        { fisName = "fis"
         , fisInputs = buildVars (mfdInputs defs)
         , fisOutputs = buildVars (mfdOutputs defs)
-        , fisRules = moodRules
+        , fisRules = rules
         , fisMethod = Mamdani
         }
+
+-- | Mood-specific wrapper: always uses 'moodRules'.
+buildMoodFIS :: MembershipFuncDefs -> FIS
+buildMoodFIS = buildFIS moodRules
 
 moodInputVars :: Map Text LinguisticVar
 moodInputVars = buildVars (mfdInputs defaultMembershipFuncDefs)
@@ -80,7 +88,7 @@ moodOutputVars :: Map Text LinguisticVar
 moodOutputVars = buildVars (mfdOutputs defaultMembershipFuncDefs)
 
 moodFIS :: FIS
-moodFIS = buildFIS defaultMembershipFuncDefs
+moodFIS = buildMoodFIS defaultMembershipFuncDefs
 
 moodRules :: [FuzzyRule]
 moodRules =

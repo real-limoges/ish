@@ -23,5 +23,4 @@ cabal.project.local~
 .ghc.environment.*
 .idea/
 *.db
-docs/
 data/ish.db

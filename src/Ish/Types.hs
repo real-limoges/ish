@@ -246,9 +246,10 @@ instance FromJSON MembershipFuncDefs where
             <$> v .: "inputs"
             <*> v .: "outputs"
 
--- | Wire format for a single fuzzy rule. @if@ / @then@ are lists of
---   (variable, term) pairs; AND across the antecedents uses the min t-norm,
---   matching Hazy's Mamdani.
+{- | Wire format for a single fuzzy rule. @if@ / @then@ are lists of
+  (variable, term) pairs; AND across the antecedents uses the min t-norm,
+  matching Hazy's Mamdani.
+-}
 data RuleDef = RuleDef
     { ruleDefIf :: [(Text, Text)]
     , ruleDefThen :: [(Text, Text)]
@@ -273,10 +274,10 @@ instance FromJSON RuleDef where
 parseVarTerm :: Value -> Parser (Text, Text)
 parseVarTerm = withObject "VarTerm" $ \o -> (,) <$> o .: "var" <*> o .: "term"
 
-
--- | Request body for POST /inference/mamdani. Carries everything needed to
---   build a one-shot FIS, run Mamdani inference, and return the intermediate
---   state for visualization.
+{- | Request body for POST /inference/mamdani. Carries everything needed to
+  build a one-shot FIS, run Mamdani inference, and return the intermediate
+  state for visualization.
+-}
 data MamdaniRequest = MamdaniRequest
     { mrDefs :: MembershipFuncDefs
     , mrRules :: [RuleDef]
@@ -299,9 +300,10 @@ instance FromJSON MamdaniRequest where
             <*> v .: "rules"
             <*> v .: "values"
 
--- | Response body for POST /inference/mamdani. Mirrors 'Hazy.Inference.Types.InferenceTrace'
---   as JSON. Curves are encoded as arrays of [x, y] pairs so JS consumers can
---   splat them into d3 scales without reshaping.
+{- | Response body for POST /inference/mamdani. Mirrors 'Hazy.Inference.Types.InferenceTrace'
+  as JSON. Curves are encoded as arrays of [x, y] pairs so JS consumers can
+  splat them into d3 scales without reshaping.
+-}
 data MamdaniResponse = MamdaniResponse
     { mrsInputDegrees :: Map Text (Map Text Double)
     , mrsRuleStrengths :: [Double]
@@ -329,6 +331,8 @@ instance FromJSON MamdaniResponse where
         pure $ MamdaniResponse inDegrees strengths curves crisp
       where
         pairsOrFail :: [[Double]] -> Parser [(Double, Double)]
-        pairsOrFail = traverse $ \xs -> case xs of
-            [x, y] -> pure (x, y)
-            _ -> fail "output curve entries must be [x, y] pairs"
+        pairsOrFail = traverse pairOrFail
+
+        pairOrFail :: [Double] -> Parser (Double, Double)
+        pairOrFail [x, y] = pure (x, y)
+        pairOrFail _ = fail "output curve entries must be [x, y] pairs"

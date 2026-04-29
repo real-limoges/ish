@@ -6,7 +6,7 @@ import Database.SQLite.Simple (Connection, execute, execute_)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (assertEqual, testCase)
 
-import Ish.Db (fetchAllEntries, fetchEntriesInRange, openDb)
+import Ish.Db (fetchEntries, openDb)
 import Ish.Fixtures (entry1, entry2, entry3)
 import Ish.Types (MoodDimension (..), MoodEntry (..))
 
@@ -14,41 +14,71 @@ dbTests :: TestTree
 dbTests =
     testGroup
         "Db"
-        [ testCase "fetchAllEntries returns empty list for empty db" $ do
+        [ testCase "fetchEntries with no bounds returns empty list for empty db" $ do
             conn <- openDb ":memory:"
             createSchema conn
-            entries <- fetchAllEntries conn
+            entries <- fetchEntries conn Nothing Nothing
             assertEqual "" [] entries
-        , testCase "fetchAllEntries returns all entries ordered by date" $ do
+        , testCase "fetchEntries with no bounds returns all entries ordered by date" $ do
             conn <- openDb ":memory:"
             createSchema conn
             mapM_ (insertEntry conn) [entry2, entry1, entry3]
-            entries <- fetchAllEntries conn
+            entries <- fetchEntries conn Nothing Nothing
             assertEqual "" (map entryDate [entry1, entry2, entry3]) (map entryDate entries)
-        , testCase "fetchAllEntries preserves dimension values" $ do
+        , testCase "fetchEntries preserves dimension values" $ do
             conn <- openDb ":memory:"
             createSchema conn
             insertEntry conn entry1
-            entries <- fetchAllEntries conn
+            entries <- fetchEntries conn Nothing Nothing
             assertEqual "" [entry1] entries
-        , testCase "fetchEntriesInRange returns only entries within range" $ do
+        , testCase "fetchEntries with both bounds returns only entries within range" $ do
             conn <- openDb ":memory:"
             createSchema conn
             mapM_ (insertEntry conn) [entry1, entry2, entry3]
-            entries <- fetchEntriesInRange conn (fromGregorian 2024 1 1) (fromGregorian 2024 1 2)
+            entries <-
+                fetchEntries
+                    conn
+                    (Just (fromGregorian 2024 1 1))
+                    (Just (fromGregorian 2024 1 2))
             assertEqual "" [fromGregorian 2024 1 1, fromGregorian 2024 1 2] (map entryDate entries)
-        , testCase "fetchEntriesInRange is inclusive on both ends" $ do
+        , testCase "fetchEntries with both bounds is inclusive on both ends" $ do
             conn <- openDb ":memory:"
             createSchema conn
             mapM_ (insertEntry conn) [entry1, entry2, entry3]
-            entries <- fetchEntriesInRange conn (fromGregorian 2024 1 1) (fromGregorian 2024 1 3)
+            entries <-
+                fetchEntries
+                    conn
+                    (Just (fromGregorian 2024 1 1))
+                    (Just (fromGregorian 2024 1 3))
             assertEqual "" 3 (length entries)
-        , testCase "fetchEntriesInRange returns empty for out-of-range dates" $ do
+        , testCase "fetchEntries with both bounds returns empty for out-of-range dates" $ do
             conn <- openDb ":memory:"
             createSchema conn
             mapM_ (insertEntry conn) [entry1, entry2, entry3]
-            entries <- fetchEntriesInRange conn (fromGregorian 2025 1 1) (fromGregorian 2025 12 31)
+            entries <-
+                fetchEntries
+                    conn
+                    (Just (fromGregorian 2025 1 1))
+                    (Just (fromGregorian 2025 12 31))
             assertEqual "" [] entries
+        , testCase "fetchEntries with only `from` returns entries on or after that date" $ do
+            conn <- openDb ":memory:"
+            createSchema conn
+            mapM_ (insertEntry conn) [entry1, entry2, entry3]
+            entries <- fetchEntries conn (Just (fromGregorian 2024 1 2)) Nothing
+            assertEqual
+                ""
+                [fromGregorian 2024 1 2, fromGregorian 2024 1 3]
+                (map entryDate entries)
+        , testCase "fetchEntries with only `to` returns entries on or before that date" $ do
+            conn <- openDb ":memory:"
+            createSchema conn
+            mapM_ (insertEntry conn) [entry1, entry2, entry3]
+            entries <- fetchEntries conn Nothing (Just (fromGregorian 2024 1 2))
+            assertEqual
+                ""
+                [fromGregorian 2024 1 1, fromGregorian 2024 1 2]
+                (map entryDate entries)
         ]
 
 createSchema :: Connection -> IO ()

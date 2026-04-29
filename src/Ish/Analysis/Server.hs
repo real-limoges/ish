@@ -6,6 +6,7 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader (asks)
 import Data.IORef (readIORef, writeIORef)
 import Data.Text (Text)
+import Data.Time.Calendar (Day)
 import Hazy (FIS)
 import Servant (ServerT, (:<|>) (..))
 
@@ -17,7 +18,7 @@ import Ish.Analysis.Fuzzy (analyzeMoodEntries, clusterEntries)
 import Ish.Analysis.Gaps (GapAnalysis, analyzeGaps)
 import Ish.Analysis.Mamdani (runMamdani)
 import Ish.App (AppEnv (..), AppM)
-import Ish.Db (fetchAllEntries)
+import Ish.Db (fetchEntries)
 import Ish.Types (
     AnalysisResult,
     MamdaniRequest,
@@ -53,37 +54,37 @@ currentFis = do
     defs <- liftIO $ readIORef ref
     pure (buildMoodFIS defs)
 
-analysisHandler :: AppM AnalysisResult
-analysisHandler = do
+analysisHandler :: Maybe Day -> Maybe Day -> AppM AnalysisResult
+analysisHandler mFrom mTo = do
     conn <- asks envConnection
     fis <- currentFis
-    df <- fillMissingDates <$> liftIO (fetchAllEntries conn)
+    df <- fillMissingDates <$> liftIO (fetchEntries conn mFrom mTo)
     pure $ analyzeMoodEntries fis df
 
-clustersHandler :: AppM [MoodCluster]
-clustersHandler = do
+clustersHandler :: Maybe Day -> Maybe Day -> AppM [MoodCluster]
+clustersHandler mFrom mTo = do
     conn <- asks envConnection
     fis <- currentFis
-    df <- fillMissingDates <$> liftIO (fetchAllEntries conn)
+    df <- fillMissingDates <$> liftIO (fetchEntries conn mFrom mTo)
     pure $ clusterEntries fis df
 
-dataHandler :: AppM [MoodEntry]
-dataHandler = do
+dataHandler :: Maybe Day -> Maybe Day -> AppM [MoodEntry]
+dataHandler mFrom mTo = do
     conn <- asks envConnection
-    liftIO $ fetchAllEntries conn
+    liftIO $ fetchEntries conn mFrom mTo
 
-clusterHandler :: ClusterConfig -> AppM ClusterResult
-clusterHandler cfg = do
+clusterHandler :: Maybe Day -> Maybe Day -> ClusterConfig -> AppM ClusterResult
+clusterHandler mFrom mTo cfg = do
     conn <- asks envConnection
     fis <- currentFis
-    df <- fillMissingDates <$> liftIO (fetchAllEntries conn)
+    df <- fillMissingDates <$> liftIO (fetchEntries conn mFrom mTo)
     pure $ clusterMoodData fis cfg df
 
-gapsHandler :: AppM GapAnalysis
-gapsHandler = do
+gapsHandler :: Maybe Day -> Maybe Day -> AppM GapAnalysis
+gapsHandler mFrom mTo = do
     conn <- asks envConnection
     fis <- currentFis
-    entries <- liftIO $ fetchAllEntries conn
+    entries <- liftIO $ fetchEntries conn mFrom mTo
     let df = fillMissingDates entries
         cr = clusterMoodData fis defaultCfg df
     pure $ analyzeGaps df cr
@@ -101,20 +102,21 @@ postMembershipFnsHandler defs = do
     liftIO $ writeIORef ref defs
     pure defs
 
-{- | Derives candidate MembershipFuncDefs from the current data distribution
-(percentile-based). Does NOT mutate envMembershipFns — the caller decides
-whether to apply the result via POST /membership-functions.
+{- | Derives candidate MembershipFuncDefs from the data distribution within the
+given window (percentile-based). Does NOT mutate envMembershipFns — the caller
+decides whether to apply the result via POST /membership-functions.
 -}
-suggestMembershipFnsHandler :: AppM MembershipFuncDefs
-suggestMembershipFnsHandler = do
+suggestMembershipFnsHandler :: Maybe Day -> Maybe Day -> AppM MembershipFuncDefs
+suggestMembershipFnsHandler mFrom mTo = do
     conn <- asks envConnection
     ref <- asks envMembershipFns
     current <- liftIO $ readIORef ref
-    entries <- liftIO $ fetchAllEntries conn
+    entries <- liftIO $ fetchEntries conn mFrom mTo
     pure $ suggestMembershipFuncDefs current (fillMissingDates entries)
 
--- | Pure, stateless Mamdani inference driven entirely by the request body.
---   No database, no AppEnv — the caller supplies MFs, rules, and crisp inputs,
---   and gets back the full intermediate trace for visualization.
+{- | Pure, stateless Mamdani inference driven entirely by the request body.
+  No database, no AppEnv — the caller supplies MFs, rules, and crisp inputs,
+  and gets back the full intermediate trace for visualization.
+-}
 mamdaniHandler :: MamdaniRequest -> AppM MamdaniResponse
 mamdaniHandler = pure . runMamdani

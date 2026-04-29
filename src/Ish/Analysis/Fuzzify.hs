@@ -65,8 +65,9 @@ buildVars = Map.fromList . map toVar
             }
         )
 
--- | Build a Hazy FIS from wire-format MF defs plus a rule set. Generic; no
---   mood-specific assumptions.
+{- | Build a Hazy FIS from wire-format MF defs plus a rule set. Generic; no
+  mood-specific assumptions.
+-}
 buildFIS :: [FuzzyRule] -> MembershipFuncDefs -> FIS
 buildFIS rules defs =
     FIS

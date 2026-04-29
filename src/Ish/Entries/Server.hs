@@ -8,7 +8,7 @@ import Data.Time.Calendar (Day)
 import Servant (ServerT)
 
 import Ish.App (AppEnv (..), AppM)
-import Ish.Db (fetchAllEntries, fetchEntriesInRange)
+import Ish.Db (fetchEntries)
 import Ish.Entries.Api (EntriesApi)
 import Ish.Types (MoodEntry)
 
@@ -18,6 +18,4 @@ entriesServer = getEntries
 getEntries :: Maybe Day -> Maybe Day -> AppM [MoodEntry]
 getEntries mFrom mTo = do
     conn <- asks envConnection
-    case (mFrom, mTo) of
-        (Just from, Just to) -> liftIO $ fetchEntriesInRange conn from to
-        _ -> liftIO $ fetchAllEntries conn
+    liftIO $ fetchEntries conn mFrom mTo

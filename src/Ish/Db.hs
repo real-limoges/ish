@@ -1,43 +1,54 @@
 module Ish.Db (
     openDb,
-    fetchAllEntries,
-    fetchEntriesInRange,
+    fetchEntries,
 ) where
 
 import Data.Map.Strict qualified as Map
 import Data.Time.Calendar (Day)
-import Database.SQLite.Simple (Connection, Query, open, query, query_)
+import Database.SQLite.Simple (
+    Connection,
+    Only (..),
+    Query,
+    open,
+    query,
+    query_,
+ )
 
 import Ish.Types (MoodDimension (..), MoodEntry (..))
 
 openDb :: FilePath -> IO Connection
 openDb = open
 
-{- | Fetch all mood entries from the database, ordered by date ascending.
+{- | Fetch mood entries with optional date bounds (inclusive), ordered by date
+ascending. Pass 'Nothing' on either side to leave that bound open.
+
+  * @fetchEntries conn Nothing Nothing@        — all entries
+  * @fetchEntries conn (Just d) Nothing@       — d and later
+  * @fetchEntries conn Nothing (Just d)@       — d and earlier
+  * @fetchEntries conn (Just a) (Just b)@      — a..b inclusive
 
 Maps the 5 columns (sleep, anxiety, sensitivity, outlook, speed) to
-'MoodDimension' values.  This is the single place where DB column names
+'MoodDimension' values. This is the single place where DB column names
 are mapped to domain types.
 -}
-fetchAllEntries :: Connection -> IO [MoodEntry]
-fetchAllEntries conn = do
-    rows <- query_ conn allEntriesQuery
+fetchEntries :: Connection -> Maybe Day -> Maybe Day -> IO [MoodEntry]
+fetchEntries conn mFrom mTo = do
+    rows <- case (mFrom, mTo) of
+        (Nothing, Nothing) ->
+            query_ conn (selectCols <> orderBy)
+        (Just from, Nothing) ->
+            query conn (selectCols <> " WHERE date >= ?" <> orderBy) (Only from)
+        (Nothing, Just to) ->
+            query conn (selectCols <> " WHERE date <= ?" <> orderBy) (Only to)
+        (Just from, Just to) ->
+            query conn (selectCols <> " WHERE date >= ? AND date <= ?" <> orderBy) (from, to)
     pure $ map rowToEntry rows
 
-fetchEntriesInRange :: Connection -> Day -> Day -> IO [MoodEntry]
-fetchEntriesInRange conn from to = do
-    rows <- query conn rangeQuery (from, to)
-    pure $ map rowToEntry rows
+selectCols :: Query
+selectCols = "SELECT date, sleep, anxiety, sensitivity, outlook, speed FROM mood_entries"
 
-allEntriesQuery :: Query
-allEntriesQuery =
-    "SELECT date, sleep, anxiety, sensitivity, outlook, speed \
-    \FROM mood_entries ORDER BY date ASC"
-
-rangeQuery :: Query
-rangeQuery =
-    "SELECT date, sleep, anxiety, sensitivity, outlook, speed \
-    \FROM mood_entries WHERE date >= ? AND date <= ? ORDER BY date ASC"
+orderBy :: Query
+orderBy = " ORDER BY date ASC"
 
 rowToEntry :: (Day, Double, Double, Double, Double, Double) -> MoodEntry
 rowToEntry (day, sl, ax, se, ol, ms) =

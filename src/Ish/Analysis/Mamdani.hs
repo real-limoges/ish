@@ -17,9 +17,10 @@ import Ish.Types (
     RuleDef (..),
  )
 
--- | Pure driver: take a MamdaniRequest, build a one-shot FIS from its MFs
---   and rules, run Hazy's traced Mamdani inference, and reshape the trace
---   into the wire-format response.
+{- | Pure driver: take a MamdaniRequest, build a one-shot FIS from its MFs
+  and rules, run Hazy's traced Mamdani inference, and reshape the trace
+  into the wire-format response.
+-}
 runMamdani :: MamdaniRequest -> MamdaniResponse
 runMamdani req =
     let rules = map ruleDefToFuzzyRule (mrRules req)

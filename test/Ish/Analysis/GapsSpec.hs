@@ -51,8 +51,7 @@ gapsTests =
          in analyzeGaps df cr
 
     runClusterOn :: DataFrame -> ClusterResult
-    runClusterOn df =
+    runClusterOn =
         clusterMoodData
             (buildMoodFIS defaultMembershipFuncDefs)
             ClusterConfig{clusterK = 2, clusterM = 2.0}
-            df
